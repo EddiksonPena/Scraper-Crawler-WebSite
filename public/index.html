@@ -3,66 +3,54 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Scraper</title>
+    <title>Web Scraper & Crawler</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="styles.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container py-4">
-        <header class="mb-4">
-            <h1 class="text-center">Web Scraper</h1>
-            <div id="connectionStatus" class="connection-status" title="Disconnected"></div>
+    <div class="container">
+        <header>
+            <h1>Web Scraper & Crawler</h1>
+            <div id="connectionStatus" title="Connection status"></div>
         </header>
 
-        <div class="card mb-4">
-            <div class="card-body">
-                <form id="scraperForm">
-                    <div class="input-group">
-                        <input type="url" id="urlInput" class="form-control" placeholder="Enter URL to scrape" required>
-                        <button type="submit" class="btn btn-primary">Start Scraping</button>
-                    </div>
-                </form>
+        <div id="alertContainer"></div>
+
+        <form id="scrapeForm" class="mb-4">
+            <div class="input-group">
+                <input type="url" id="urlInput" class="form-control" placeholder="Enter URL to scrape/crawl" required>
+                <button type="submit" id="submitButton" class="btn btn-primary">Start</button>
             </div>
-        </div>
+        </form>
 
-        <div id="alerts"></div>
-
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Progress</h5>
-                <div class="progress mb-3">
-                    <div class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-                </div>
-                
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <label>Pages Processed</label>
-                        <span id="pagesProcessed">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <label>Links Found</label>
-                        <span id="linksFound">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <label>Elapsed Time</label>
-                        <span id="elapsedTime">0s</span>
-                    </div>
-                    <div class="stat-item">
-                        <label>Memory Usage</label>
-                        <span id="memoryUsage">0 MB</span>
-                    </div>
+        <div class="progress-container mb-4">
+            <div class="progress">
+                <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    <span id="progressText">0%</span>
                 </div>
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Results</h5>
-                <div id="results" class="results-container">
-                    <!-- Results will be dynamically added here -->
-                </div>
+        <div class="stats-grid mb-4">
+            <div class="stat-item">
+                <h3>Processed Pages</h3>
+                <span id="processedPages">0</span>
+            </div>
+            <div class="stat-item">
+                <h3>Found Links</h3>
+                <span id="foundLinks">0</span>
+            </div>
+            <div class="stat-item">
+                <h3>Elapsed Time</h3>
+                <span id="elapsedTime">00:00:00</span>
+            </div>
+            <div class="stat-item">
+                <h3>Memory Usage</h3>
+                <span id="memoryUsage">0 MB</span>
             </div>
         </div>
+
+        <div id="resultsContainer" class="results-container"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
