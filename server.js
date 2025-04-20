@@ -1,129 +1,116 @@
-const express = require('express')
-const WebSocket = require('ws')
-const http = require('http')
-const path = require('path')
-const { puziPoStrani, dataReport } = require('./extract')
+const express = require('express');
+const WebSocket = require('ws');
+const http = require('http');
+const path = require('path');
+const { puziPoStrani } = require('./extract');
 
-const app = express()
-const server = http.createServer(app)
-const wss = new WebSocket.Server({ server })
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
-// Memory usage monitoring
-function getMemoryUsage() {
-    const used = process.memoryUsage()
-    return {
-        heapUsed: Math.round(used.heapUsed / 1024 / 1024),
-        heapTotal: Math.round(used.heapTotal / 1024 / 1024),
-        external: Math.round(used.external / 1024 / 1024),
-        percentageUsed: Math.round((used.heapUsed / used.heapTotal) * 100)
-    }
-}
+app.use(express.static('public'));
+app.use(express.json());
 
 // WebSocket connection handling
-wss.on('connection', ws => {
-    console.log('New WebSocket connection')
-    
-    ws.on('error', console.error)
-    
+wss.on('connection', (ws) => {
+    console.log('New WebSocket connection');
+
+    ws.on('error', console.error);
+
     ws.on('close', () => {
-        console.log('Client disconnected')
-    })
-})
+        console.log('Client disconnected');
+    });
+});
 
 // Broadcast to all connected clients
 function broadcast(data) {
-    wss.clients.forEach(client => {
+    wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(data))
+            client.send(JSON.stringify(data));
         }
-    })
+    });
 }
 
-app.use(express.static('public'))
-app.use(express.json())
+// Get memory usage
+function getMemoryUsage() {
+    const used = process.memoryUsage();
+    return {
+        heapUsed: used.heapUsed,
+        heapTotal: used.heapTotal,
+        external: used.external,
+        percentageUsed: (used.heapUsed / used.heapTotal) * 100
+    };
+}
 
-// Main scraping endpoint
+// Scraping endpoint
 app.post('/scrape', async (req, res) => {
-    const startTime = Date.now()
-    const startMemory = getMemoryUsage()
-    const url = req.body.url
-    
+    const { url } = req.body;
     if (!url) {
-        return res.status(400).json({ error: 'URL is required' })
+        return res.status(400).json({ error: 'URL is required' });
     }
 
+    const startTime = Date.now();
+    let processedPages = 0;
+    let foundLinks = 0;
+
     try {
-        console.log(`Starting crawl of ${url}`)
-        broadcast({
-            type: 'start',
-            url: url,
-            memory: startMemory
-        })
-
-        const pages = await puziPoStrani(url, url, {}, (progress) => {
-            const memory = getMemoryUsage()
-            broadcast({
-                type: 'progress',
-                ...progress,
-                memory
-            })
-        })
-
-        const endTime = Date.now()
-        const duration = (endTime - startTime) / 1000
-        const endMemory = getMemoryUsage()
-        
-        const report = dataReport(pages)
-        report.performance = {
-            duration,
-            pagesPerSecond: (report.summary.totalPages / duration).toFixed(2),
-            startMemory,
-            endMemory,
-            memoryDelta: {
-                heapUsed: endMemory.heapUsed - startMemory.heapUsed,
-                heapTotal: endMemory.heapTotal - startMemory.heapTotal
+        const results = await puziPoStrani(url, {
+            onProgress: (progress, stats) => {
+                processedPages = stats.processedPages;
+                foundLinks = stats.foundLinks;
+                broadcast({
+                    type: 'progress',
+                    progress,
+                    processedPages,
+                    foundLinks,
+                    memoryUsage: getMemoryUsage()
+                });
+            },
+            onResult: (result) => {
+                broadcast({
+                    type: 'result',
+                    ...result
+                });
             }
-        }
+        });
+
+        const endTime = Date.now();
+        const duration = (endTime - startTime) / 1000;
+        const pagesPerSecond = processedPages / duration;
 
         broadcast({
             type: 'complete',
-            report
-        })
+            stats: {
+                totalTime: duration,
+                pagesPerSecond,
+                processedPages,
+                foundLinks,
+                memoryBefore: results.memoryBefore,
+                memoryAfter: results.memoryAfter
+            }
+        });
 
         res.json({
-            status: 'success',
-            report
-        })
-
+            success: true,
+            stats: {
+                totalTime: duration,
+                pagesPerSecond,
+                processedPages,
+                foundLinks
+            }
+        });
     } catch (error) {
-        const errorMemory = getMemoryUsage()
-        console.error('Scraping error:', error)
-        
+        console.error('Scraping error:', error);
         broadcast({
             type: 'error',
-            error: error.message,
-            memory: errorMemory
-        })
-
-        res.status(500).json({
-            status: 'error',
-            error: error.message,
-            memory: errorMemory
-        })
+            message: error.message,
+            memoryUsage: getMemoryUsage()
+        });
+        res.status(500).json({ error: error.message });
     }
-})
+});
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    const memory = getMemoryUsage()
-    res.json({
-        status: 'ok',
-        uptime: process.uptime(),
-        memory
-    })
-})
-
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`)
-})
+    console.log(`Server is running on http://localhost:${PORT}`);
+});
