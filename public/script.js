@@ -1,23 +1,23 @@
-let socket;
-let isProcessing = false;
+// WebSocket connection
+let socket = null;
+let isConnected = false;
 
-document.addEventListener('DOMContentLoaded', () => {
-    initializeWebSocket();
-    setupEventListeners();
-});
-
-function initializeWebSocket() {
+// Connect to WebSocket server
+function connectWebSocket() {
     socket = new WebSocket('ws://localhost:3000');
     
     socket.onopen = () => {
-        console.log('WebSocket connection established');
+        console.log('WebSocket connected');
+        isConnected = true;
         updateConnectionStatus(true);
     };
     
     socket.onclose = () => {
-        console.log('WebSocket connection closed');
+        console.log('WebSocket disconnected');
+        isConnected = false;
         updateConnectionStatus(false);
-        setTimeout(initializeWebSocket, 5000); // Attempt to reconnect every 5 seconds
+        // Try to reconnect after 5 seconds
+        setTimeout(connectWebSocket, 5000);
     };
     
     socket.onerror = (error) => {
@@ -26,137 +26,124 @@ function initializeWebSocket() {
     };
     
     socket.onmessage = (event) => {
-        handleWebSocketMessage(JSON.parse(event.data));
+        const data = JSON.parse(event.data);
+        handleProgress(data);
     };
 }
 
-function updateConnectionStatus(isConnected) {
+// Update connection status indicator
+function updateConnectionStatus(connected) {
     const statusElement = document.getElementById('connectionStatus');
-    statusElement.textContent = isConnected ? 'Connected' : 'Disconnected';
-    statusElement.className = isConnected ? 'text-success' : 'text-danger';
+    if (connected) {
+        statusElement.classList.remove('bg-danger');
+        statusElement.classList.add('bg-success');
+        statusElement.title = 'Connected';
+    } else {
+        statusElement.classList.remove('bg-success');
+        statusElement.classList.add('bg-danger');
+        statusElement.title = 'Disconnected';
+    }
 }
 
-function setupEventListeners() {
-    document.getElementById('scrapeForm').addEventListener('submit', handleFormSubmit);
-    document.getElementById('clearResults').addEventListener('click', clearResults);
-}
-
-async function handleFormSubmit(event) {
-    event.preventDefault();
-    if (isProcessing) return;
-
-    const url = document.getElementById('urlInput').value.trim();
-    if (!url) {
+// Handle form submission
+document.getElementById('scraperForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const urlInput = document.getElementById('urlInput');
+    const url = urlInput.value.trim();
+    
+    if (!isValidUrl(url)) {
         showAlert('Please enter a valid URL', 'danger');
         return;
     }
-
+    
+    // Reset UI
+    resetUI();
+    
     try {
-        isProcessing = true;
-        updateUIForProcessing(true);
-        
         const response = await fetch('/scrape', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ url })
         });
-
+        
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-
-        const result = await response.json();
-        displayResults(result);
+        
+        const data = await response.json();
+        handleResults(data);
     } catch (error) {
         console.error('Error:', error);
-        showAlert('An error occurred while scraping: ' + error.message, 'danger');
-    } finally {
-        isProcessing = false;
-        updateUIForProcessing(false);
+        showAlert('An error occurred while scraping', 'danger');
     }
-}
+});
 
-function handleWebSocketMessage(data) {
+// Handle progress updates
+function handleProgress(data) {
     if (data.type === 'progress') {
-        updateProgress(data);
-    } else if (data.type === 'stats') {
+        updateProgress(data.progress);
         updateStats(data);
     } else if (data.type === 'error') {
         showAlert(data.message, 'danger');
     }
 }
 
-function updateProgress(data) {
-    const progressBar = document.getElementById('progressBar');
-    const statusText = document.getElementById('statusText');
-    
-    progressBar.style.width = `${data.progress}%`;
-    progressBar.setAttribute('aria-valuenow', data.progress);
-    progressBar.textContent = `${Math.round(data.progress)}%`;
-    
-    if (data.message) {
-        statusText.textContent = data.message;
-    }
+// Update progress bar
+function updateProgress(progress) {
+    const progressBar = document.querySelector('.progress-bar');
+    progressBar.style.width = `${progress}%`;
+    progressBar.setAttribute('aria-valuenow', progress);
+    progressBar.textContent = `${progress}%`;
 }
 
+// Update statistics
 function updateStats(data) {
-    const statsContainer = document.getElementById('stats');
-    statsContainer.innerHTML = '';
-    
-    const stats = [
-        { label: 'Pages Processed', value: data.pagesProcessed },
-        { label: 'Links Found', value: data.linksFound },
-        { label: 'Processing Time', value: formatTime(data.processingTime) },
-        { label: 'Memory Usage', value: formatBytes(data.memoryUsage) }
-    ];
-    
-    stats.forEach(stat => {
-        const div = document.createElement('div');
-        div.className = 'stat-item p-2 bg-light rounded';
-        div.innerHTML = `
-            <div class="fw-bold">${stat.label}</div>
-            <div>${stat.value}</div>
-        `;
-        statsContainer.appendChild(div);
-    });
+    document.getElementById('pagesProcessed').textContent = data.pagesProcessed || 0;
+    document.getElementById('linksFound').textContent = data.linksFound || 0;
+    document.getElementById('elapsedTime').textContent = formatTime(data.elapsedTime || 0);
+    document.getElementById('memoryUsage').textContent = formatMemory(data.memoryUsage || 0);
 }
 
-function displayResults(data) {
+// Handle final results
+function handleResults(data) {
     const resultsContainer = document.getElementById('results');
     resultsContainer.innerHTML = '';
     
-    if (data.links && data.links.length > 0) {
-        const list = document.createElement('ul');
-        list.className = 'list-group';
-        
-        data.links.forEach(link => {
-            const item = document.createElement('li');
-            item.className = 'list-group-item';
-            item.innerHTML = `
-                <a href="${link.url}" target="_blank">${link.title || link.url}</a>
-                ${link.description ? `<p class="mb-0 text-muted small">${link.description}</p>` : ''}
-            `;
-            list.appendChild(item);
-        });
-        
-        resultsContainer.appendChild(list);
-    } else {
-        resultsContainer.innerHTML = '<p class="text-muted">No results found</p>';
-    }
-}
-
-function updateUIForProcessing(isProcessing) {
-    const submitButton = document.querySelector('button[type="submit"]');
-    const urlInput = document.getElementById('urlInput');
+    data.links.forEach(link => {
+        const resultItem = document.createElement('div');
+        resultItem.className = 'result-item';
+        resultItem.innerHTML = `
+            <h6><a href="${link.url}" target="_blank">${link.title || link.url}</a></h6>
+            ${link.description ? `<p>${link.description}</p>` : ''}
+            <div class="metadata">
+                <span>Depth: ${link.depth || 'N/A'}</span>
+                ${link.lastModified ? `• Last modified: ${new Date(link.lastModified).toLocaleDateString()}` : ''}
+            </div>
+        `;
+        resultsContainer.appendChild(resultItem);
+    });
     
-    submitButton.disabled = isProcessing;
-    urlInput.disabled = isProcessing;
-    submitButton.innerHTML = isProcessing ? 
-        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...' : 
-        'Start Scraping';
+    showAlert('Scraping completed successfully!', 'success');
 }
 
-function showAlert(message, type = 'info') {
+// Reset UI elements
+function resetUI() {
+    updateProgress(0);
+    document.getElementById('results').innerHTML = '';
+    document.querySelectorAll('.alert').forEach(alert => alert.remove());
+    updateStats({
+        pagesProcessed: 0,
+        linksFound: 0,
+        elapsedTime: 0,
+        memoryUsage: 0
+    });
+}
+
+// Show alert message
+function showAlert(message, type) {
     const alertsContainer = document.getElementById('alerts');
     const alert = document.createElement('div');
     alert.className = `alert alert-${type} alert-dismissible fade show`;
@@ -166,30 +153,51 @@ function showAlert(message, type = 'info') {
     `;
     alertsContainer.appendChild(alert);
     
+    // Auto-dismiss after 5 seconds
     setTimeout(() => {
-        alert.remove();
+        alert.classList.remove('show');
+        setTimeout(() => alert.remove(), 150);
     }, 5000);
 }
 
-function clearResults() {
-    document.getElementById('results').innerHTML = '';
-    document.getElementById('stats').innerHTML = '';
-    document.getElementById('progressBar').style.width = '0%';
-    document.getElementById('progressBar').textContent = '0%';
-    document.getElementById('statusText').textContent = '';
+// Utility function to validate URL
+function isValidUrl(string) {
+    try {
+        new URL(string);
+        return true;
+    } catch (_) {
+        return false;
+    }
 }
 
-function formatTime(ms) {
-    if (ms < 1000) return `${ms}ms`;
-    const seconds = Math.floor(ms / 1000);
+// Utility function to format time
+function formatTime(milliseconds) {
+    const seconds = Math.floor(milliseconds / 1000);
     const minutes = Math.floor(seconds / 60);
-    if (minutes === 0) return `${seconds}s`;
-    return `${minutes}m ${seconds % 60}s`;
+    const hours = Math.floor(minutes / 60);
+    
+    if (hours > 0) {
+        return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+    } else if (minutes > 0) {
+        return `${minutes}m ${seconds % 60}s`;
+    } else {
+        return `${seconds}s`;
+    }
 }
 
-function formatBytes(bytes) {
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 Bytes';
-    const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
-    return Math.round(bytes / Math.pow(1024, i), 2) + ' ' + sizes[i];
+// Utility function to format memory
+function formatMemory(bytes) {
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let size = bytes;
+    let unitIndex = 0;
+    
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024;
+        unitIndex++;
+    }
+    
+    return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
+
+// Initialize WebSocket connection
+connectWebSocket();
