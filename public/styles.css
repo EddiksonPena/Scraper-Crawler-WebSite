@@ -1,109 +1,94 @@
-/* General Styles */
+:root {
+    --primary-color: #0d6efd;
+    --success-color: #198754;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+}
+
 body {
-    min-height: 100vh;
+    background-color: #f8f9fa;
 }
 
-/* Card Styles */
-.card {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.3s ease;
+.container {
+    max-width: 1000px;
 }
 
-.card:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+.connection-status {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: var(--danger-color);
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    cursor: help;
 }
 
-/* Progress Bar */
+.connection-status.connected {
+    background-color: var(--success-color);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.stat-item {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    text-align: center;
+}
+
+.stat-item label {
+    display: block;
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+.stat-item span {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.results-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.result-item {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.result-item:last-child {
+    border-bottom: none;
+}
+
+.result-item .title {
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 0.25rem;
+}
+
+.result-item .url {
+    font-size: 0.875rem;
+    color: #6c757d;
+    word-break: break-all;
+}
+
 .progress {
-    height: 10px;
-    border-radius: 5px;
+    height: 1.5rem;
 }
 
 .progress-bar {
     transition: width 0.3s ease;
 }
 
-/* Stats Grid */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-}
-
-.stat-item {
-    padding: 0.5rem;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-    text-align: center;
-}
-
-.stat-label {
-    font-size: 0.8rem;
-    color: #6c757d;
-    margin-bottom: 0.25rem;
-}
-
-.stat-value {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #212529;
-}
-
-/* Results Container */
-.results-container {
-    max-height: calc(100vh - 300px);
-    overflow-y: auto;
-    padding-right: 0.5rem;
-}
-
-.results-container::-webkit-scrollbar {
-    width: 6px;
-}
-
-.results-container::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-.results-container::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 3px;
-}
-
-.results-container::-webkit-scrollbar-thumb:hover {
-    background: #555;
-}
-
-/* Result Item */
-.result-item {
-    padding: 1rem;
-    margin-bottom: 1rem;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    transition: background-color 0.2s ease;
-}
-
-.result-item:hover {
-    background-color: #f8f9fa;
-}
-
-.result-item h6 {
-    margin-bottom: 0.5rem;
-    color: #0d6efd;
-}
-
-.result-item p {
-    margin-bottom: 0.5rem;
-    color: #6c757d;
-    font-size: 0.9rem;
-}
-
-.result-item .metadata {
-    font-size: 0.8rem;
-    color: #adb5bd;
-}
-
-/* Alert Styles */
 .alert {
     margin-bottom: 1rem;
     animation: slideIn 0.3s ease;
@@ -111,7 +96,7 @@ body {
 
 @keyframes slideIn {
     from {
-        transform: translateY(-100%);
+        transform: translateY(-20px);
         opacity: 0;
     }
     to {
@@ -120,24 +105,29 @@ body {
     }
 }
 
-/* Loading State */
-.loading {
-    opacity: 0.7;
-    pointer-events: none;
+.input-group {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* Connection Status */
-#connectionStatus {
-    transition: background-color 0.3s ease;
+.card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-/* Responsive Adjustments */
+.card-title {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1.25rem;
+}
+
 @media (max-width: 768px) {
     .stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
     }
-    
-    .results-container {
-        max-height: 400px;
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
     }
 }
