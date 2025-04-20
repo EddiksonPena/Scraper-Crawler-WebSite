@@ -1,192 +1,137 @@
-// WebSocket connection
 let socket = null;
 let isConnected = false;
+let startTime = null;
 
-// Connect to WebSocket server
-function connectWebSocket() {
+// UI Elements
+const form = document.getElementById('scrapeForm');
+const urlInput = document.getElementById('urlInput');
+const submitButton = document.getElementById('submitButton');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
+const resultsContainer = document.getElementById('resultsContainer');
+const connectionStatus = document.getElementById('connectionStatus');
+const processedPages = document.getElementById('processedPages');
+const foundLinks = document.getElementById('foundLinks');
+const elapsedTime = document.getElementById('elapsedTime');
+const memoryUsage = document.getElementById('memoryUsage');
+
+// Initialize WebSocket connection
+function initializeWebSocket() {
+    if (socket) {
+        socket.close();
+    }
+
     socket = new WebSocket('ws://localhost:3000');
-    
+
     socket.onopen = () => {
-        console.log('WebSocket connected');
         isConnected = true;
-        updateConnectionStatus(true);
+        connectionStatus.classList.add('connected');
+        connectionStatus.title = 'Connected to server';
     };
-    
+
     socket.onclose = () => {
-        console.log('WebSocket disconnected');
         isConnected = false;
-        updateConnectionStatus(false);
-        // Try to reconnect after 5 seconds
-        setTimeout(connectWebSocket, 5000);
+        connectionStatus.classList.remove('connected');
+        connectionStatus.title = 'Disconnected from server';
+        setTimeout(initializeWebSocket, 5000); // Attempt to reconnect every 5 seconds
     };
-    
+
     socket.onerror = (error) => {
         console.error('WebSocket error:', error);
-        updateConnectionStatus(false);
+        showAlert('Error connecting to server', 'danger');
     };
-    
+
     socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        handleProgress(data);
+        try {
+            const data = JSON.parse(event.data);
+            handleWebSocketMessage(data);
+        } catch (error) {
+            console.error('Error parsing message:', error);
+        }
     };
 }
 
-// Update connection status indicator
-function updateConnectionStatus(connected) {
-    const statusElement = document.getElementById('connectionStatus');
-    if (connected) {
-        statusElement.classList.remove('bg-danger');
-        statusElement.classList.add('bg-success');
-        statusElement.title = 'Connected';
-    } else {
-        statusElement.classList.remove('bg-success');
-        statusElement.classList.add('bg-danger');
-        statusElement.title = 'Disconnected';
+// Handle WebSocket messages
+function handleWebSocketMessage(data) {
+    switch (data.type) {
+        case 'progress':
+            updateProgress(data);
+            break;
+        case 'result':
+            addResult(data);
+            break;
+        case 'error':
+            showAlert(data.message, 'danger');
+            break;
+        case 'complete':
+            handleCompletion(data);
+            break;
     }
 }
 
-// Handle form submission
-document.getElementById('scraperForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const urlInput = document.getElementById('urlInput');
-    const url = urlInput.value.trim();
-    
-    if (!isValidUrl(url)) {
-        showAlert('Please enter a valid URL', 'danger');
-        return;
+// Update progress information
+function updateProgress(data) {
+    if (!startTime) {
+        startTime = Date.now();
     }
-    
-    // Reset UI
-    resetUI();
-    
-    try {
-        const response = await fetch('/scrape', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ url })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        handleResults(data);
-    } catch (error) {
-        console.error('Error:', error);
-        showAlert('An error occurred while scraping', 'danger');
-    }
-});
 
-// Handle progress updates
-function handleProgress(data) {
-    if (data.type === 'progress') {
-        updateProgress(data.progress);
-        updateStats(data);
-    } else if (data.type === 'error') {
-        showAlert(data.message, 'danger');
-    }
-}
-
-// Update progress bar
-function updateProgress(progress) {
-    const progressBar = document.querySelector('.progress-bar');
+    const progress = Math.round(data.progress * 100);
     progressBar.style.width = `${progress}%`;
     progressBar.setAttribute('aria-valuenow', progress);
-    progressBar.textContent = `${progress}%`;
+    progressText.textContent = `${progress}%`;
+
+    processedPages.textContent = data.processedPages || '0';
+    foundLinks.textContent = data.foundLinks || '0';
+    
+    const timeElapsed = Math.round((Date.now() - startTime) / 1000);
+    elapsedTime.textContent = formatTime(timeElapsed);
+    
+    if (data.memoryUsage) {
+        memoryUsage.textContent = formatMemoryUsage(data.memoryUsage);
+    }
 }
 
-// Update statistics
-function updateStats(data) {
-    document.getElementById('pagesProcessed').textContent = data.pagesProcessed || 0;
-    document.getElementById('linksFound').textContent = data.linksFound || 0;
-    document.getElementById('elapsedTime').textContent = formatTime(data.elapsedTime || 0);
-    document.getElementById('memoryUsage').textContent = formatMemory(data.memoryUsage || 0);
+// Add a result to the results container
+function addResult(data) {
+    const resultElement = document.createElement('div');
+    resultElement.className = 'result-item';
+    resultElement.innerHTML = `
+        <div class="title">${data.title || 'Untitled'}</div>
+        <div class="url">${data.url}</div>
+    `;
+    resultsContainer.appendChild(resultElement);
+    resultsContainer.scrollTop = resultsContainer.scrollHeight;
 }
 
-// Handle final results
-function handleResults(data) {
-    const resultsContainer = document.getElementById('results');
-    resultsContainer.innerHTML = '';
-    
-    data.links.forEach(link => {
-        const resultItem = document.createElement('div');
-        resultItem.className = 'result-item';
-        resultItem.innerHTML = `
-            <h6><a href="${link.url}" target="_blank">${link.title || link.url}</a></h6>
-            ${link.description ? `<p>${link.description}</p>` : ''}
-            <div class="metadata">
-                <span>Depth: ${link.depth || 'N/A'}</span>
-                ${link.lastModified ? `• Last modified: ${new Date(link.lastModified).toLocaleDateString()}` : ''}
-            </div>
-        `;
-        resultsContainer.appendChild(resultItem);
-    });
-    
+// Handle completion of scraping
+function handleCompletion(data) {
     showAlert('Scraping completed successfully!', 'success');
-}
-
-// Reset UI elements
-function resetUI() {
-    updateProgress(0);
-    document.getElementById('results').innerHTML = '';
-    document.querySelectorAll('.alert').forEach(alert => alert.remove());
-    updateStats({
-        pagesProcessed: 0,
-        linksFound: 0,
-        elapsedTime: 0,
-        memoryUsage: 0
-    });
+    submitButton.disabled = false;
+    startTime = null;
 }
 
 // Show alert message
 function showAlert(message, type) {
-    const alertsContainer = document.getElementById('alerts');
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type} alert-dismissible fade show`;
-    alert.innerHTML = `
+    const alertElement = document.createElement('div');
+    alertElement.className = `alert alert-${type} alert-dismissible fade show`;
+    alertElement.innerHTML = `
         ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
-    alertsContainer.appendChild(alert);
-    
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => {
-        alert.classList.remove('show');
-        setTimeout(() => alert.remove(), 150);
-    }, 5000);
+    document.getElementById('alertContainer').appendChild(alertElement);
+    setTimeout(() => alertElement.remove(), 5000);
 }
 
-// Utility function to validate URL
-function isValidUrl(string) {
-    try {
-        new URL(string);
-        return true;
-    } catch (_) {
-        return false;
-    }
+// Format time in HH:MM:SS
+function formatTime(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
 }
 
-// Utility function to format time
-function formatTime(milliseconds) {
-    const seconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    
-    if (hours > 0) {
-        return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-    } else if (minutes > 0) {
-        return `${minutes}m ${seconds % 60}s`;
-    } else {
-        return `${seconds}s`;
-    }
-}
-
-// Utility function to format memory
-function formatMemory(bytes) {
+// Format memory usage
+function formatMemoryUsage(bytes) {
     const units = ['B', 'KB', 'MB', 'GB'];
     let size = bytes;
     let unitIndex = 0;
@@ -199,5 +144,50 @@ function formatMemory(bytes) {
     return `${size.toFixed(2)} ${units[unitIndex]}`;
 }
 
-// Initialize WebSocket connection
-connectWebSocket();
+// Handle form submission
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    if (!isConnected) {
+        showAlert('Not connected to server', 'danger');
+        return;
+    }
+
+    const url = urlInput.value.trim();
+    if (!url) {
+        showAlert('Please enter a URL', 'warning');
+        return;
+    }
+
+    try {
+        submitButton.disabled = true;
+        resultsContainer.innerHTML = '';
+        progressBar.style.width = '0%';
+        progressBar.setAttribute('aria-valuenow', 0);
+        progressText.textContent = '0%';
+        processedPages.textContent = '0';
+        foundLinks.textContent = '0';
+        elapsedTime.textContent = '00:00:00';
+        memoryUsage.textContent = '0 MB';
+        startTime = null;
+
+        const response = await fetch('/scrape', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ url })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to start scraping');
+        }
+
+    } catch (error) {
+        showAlert(error.message, 'danger');
+        submitButton.disabled = false;
+    }
+});
+
+// Initialize WebSocket connection when the page loads
+document.addEventListener('DOMContentLoaded', initializeWebSocket);
