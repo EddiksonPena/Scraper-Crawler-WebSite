@@ -1,18 +1,43 @@
 # Web Scraper and Crawler
 
-A powerful web scraper and crawler built with Node.js, featuring real-time progress tracking and support for dynamic websites.
+A powerful web scraping and crawling application built with Node.js, featuring real-time progress tracking and a modern user interface.
 
 ## Features
 
 - Single page scraping and full website crawling
-- Real-time progress tracking with WebSocket support
-- Support for JavaScript-heavy websites using Puppeteer
-- Concurrent request handling with rate limiting
+- Real-time progress tracking with WebSocket
 - Memory usage monitoring
-- Export data in multiple formats (JSON, YAML, CSV)
-- Beautiful and responsive UI
+- Concurrent processing for improved performance
+- Modern and responsive user interface
+- Support for JavaScript-heavy websites
+- Customizable crawling depth and batch processing
+- Docker support for easy deployment
+
+## Prerequisites
+
+- Docker and Docker Compose (recommended)
+OR
+- Node.js (v14 or higher)
+- npm (v6 or higher)
 
 ## Installation
+
+### Using Docker (Recommended)
+
+1. Clone the repository:
+```bash
+git clone https://github.com/EddiksonPena/Scraper-Crawler-WebSite.git
+cd Scraper-Crawler-WebSite
+```
+
+2. Build and start the container:
+```bash
+docker-compose up --build
+```
+
+The application will be available at `http://localhost:3000`
+
+### Manual Installation
 
 1. Clone the repository:
 ```bash
@@ -30,63 +55,64 @@ npm install
 npm start
 ```
 
-4. Open your browser and navigate to `http://localhost:3000`
-
 ## Usage
 
-1. Enter a URL in the input field
-2. Choose between:
-   - "Scrape Single Page" for single page extraction
+1. Open your browser and navigate to `http://localhost:3000`
+
+2. Enter a URL in the input field and choose either:
+   - "Scrape Single Page" for individual page scraping
    - "Crawl Website" for full website crawling
-3. Monitor progress in real-time
-4. Export the results in your preferred format
 
 ## Configuration
 
-Key configuration options in `extract.js`:
+The following parameters can be adjusted in `extract.js`:
 
-```javascript
-const CONFIG = {
-    RATE_LIMIT_MS: 2000,    // Delay between requests
-    MAX_RETRIES: 3,         // Maximum retry attempts
-    MAX_CONCURRENT: 3,      // Maximum concurrent requests
-    TIMEOUT: 30000         // Request timeout in milliseconds
-}
-```
+- `RATE_LIMIT_MS`: Delay between requests (default: 1000ms)
+- `MAX_CONCURRENT`: Maximum concurrent requests (default: 5)
+- `TIMEOUT`: Request timeout (default: 30000ms)
+- `BROWSER_POOL_SIZE`: Number of browser instances (default: 3)
+- `BATCH_SIZE`: URLs to process in each batch (default: 5)
 
-## API Endpoints
+## Docker Configuration
 
-- `POST /scrape`
-  - Body: `{ url: string, action: "scrape" | "crawl" }`
-  - Returns scraped/crawled data with performance metrics
+The Docker environment can be customized through the following files:
 
-- `POST /export/:format`
-  - Formats: `json`, `yaml`, `csv`
-  - Returns data in the specified format
+- `Dockerfile`: Contains the container build instructions
+- `docker-compose.yml`: Defines the service configuration
+- `chrome.json`: Security profile for running Chrome in Docker
 
-## WebSocket Events
+You can adjust the following in `docker-compose.yml`:
+- Port mapping (default: 3000:3000)
+- Memory limits (default: 2GB max, 1GB reserved)
+- CPU limits (default: 2 CPUs max, 1 CPU reserved)
 
-- `progress`
-  - Reports crawling progress and memory usage
-  - Includes current URL and total pages crawled
+## Project Structure
 
-- `error`
-  - Reports any errors during scraping/crawling
-  - Includes error message and memory state
+- `server.js`: Main server file with WebSocket and HTTP endpoints
+- `extract.js`: Core scraping and crawling logic
+- `public/`: Frontend assets
+  - `index.html`: Main UI
+  - `styles.css`: UI styling
+  - `script.js`: Client-side JavaScript
+- `Dockerfile`: Container build instructions
+- `docker-compose.yml`: Container orchestration
+- `chrome.json`: Chrome security profile
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes: `git commit -am 'Add my feature'`
-4. Push to the branch: `git push origin feature/my-feature`
-5. Submit a pull request
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Author
+## Acknowledgments
 
-Eddikson Pena
-- GitHub: [@EddiksonPena](https://github.com/EddiksonPena)
+- Built with Node.js and Puppeteer
+- Uses WebSocket for real-time communication
+- Implements modern web technologies and best practices
+- Docker support for consistent deployment
